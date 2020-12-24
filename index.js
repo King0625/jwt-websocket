@@ -28,11 +28,24 @@ app.post('/login', (req, res) => {
   res.json({accessToken});
 })
 
-io.on('connection', (socket) => {
-  console.log('a user connected');
-  socket.on('disconnect', () => {
-    console.log('user disconnected');
-  });
+io.use(function(socket, next){
+  if (socket.handshake.query && socket.handshake.query.token){
+    jwt.verify(socket.handshake.query.token, process.env.ACCESS_TOKEN_SECRET, function(err, decoded) {
+      if (err) return next(new Error('Authentication error'));
+      console.log(decoded);
+      socket.decoded = decoded;
+      next();
+    });
+  }
+  else {
+    next(new Error('Authentication error'));
+  }    
+})
+.on('connection', function(socket) {
+    // Connection now authenticated to receive further events
+    socket.on('message', function(message) {
+        io.emit('message', message);
+    });
 });
 
 server.listen(3000, () => console.log("Listening on port 3000"));
